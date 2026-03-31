@@ -1,122 +1,103 @@
-# 💎 HerFund Bloc (HFB)
-### AI-Powered Democratic Micro-Investment Club Platform
+# 💎 HerFund Bloc (HFB) — Technical Documentation
+### Democratic Micro-Investment Club Platform
 
-**HerFund Bloc** is a specialized investment platform designed to bridge the gender investment gap by enabling small groups (5-10 people) to pool capital, learn together, and execute trades through a strict democratic consensus mechanism.
-
-Built for the **AIC 2026 DevSwarm Hackathon (BITS Pilani APOGEE)**, this project demonstrates high-fidelity **AI Orchestration** and rigorous financial logic.
+**HerFund Bloc (HFB)** is a high-fidelity investment club platform designed specifically to bridge the gender investment gap. It allows small groups (5-10 people) to pool capital (Real and Demo), propose trades, and execute them only when a strict mathematical consensus is reached.
 
 ---
 
-## 🎯 Problem Statement 2 Alignment: "Anti-Vibe" Mastered
-This project is a direct response to **Problem Statement 2: Micro-Investment Club Platform**. We have architected every core feature to meet the hackathon’s strict constraints:
+## 🏗️ System Architecture & Data Flow
 
-| Constraint | HFB Implementation & Logic | Key File |
-|:--- |:--- |:--- |
-| **Strict Voting Consensus** | **60-80% Quorum State-Machine**. No trade can execute without a verified quorum within a 24h window. | `state_machine.py` |
-| **Multi-Signature Ledger** | **Cryptographic Hash-Chained Ledger**. Append-only with SHA-256 forward-chaining for tamper-evidence. | `ledger_module.py` |
-| **Fractional Ownership** | **Dynamic Revaluation Math**. Real-time adjustment of member equity based on portfolio valuation. | `ledger_module.py` |
-| **Real-Time Integration** | **Yahoo Finance Engine (yfinance)**. Live pricing during voting and for daily pool revaluation. | `market_service.py` |
-| **Functional Outcome** | **Propose → Vote → Execute → Ledger**. A complete lifecycle demonstration in the browser. | `server.py` + `app.js` |
-
----
-
-## 🏗️ DevSwarm Parallel Architecture
-HFB was built using **parallel AI agent orchestration**. Four specialized AI agents worked simultaneously on isolated git worktrees to build the platform in a fraction of the time.
+The platform is built on a modular Python back-end and a glassmorphism front-end. The core logic is distributed across specialized engines to ensure reliability and auditability.
 
 ```mermaid
-graph TD
-    M[main] --> A1[🟣 Agent 1: Backend API]
-    M --> A2[🟢 Agent 2: Frontend UI]
-    M --> A3[🟡 Agent 3: Market Data]
-    M --> A4[🔵 Agent 4: Testing/DevOps]
-    
-    A1 --> |feat/backend-api| C[models, state_machine, ledger]
-    A2 --> |feat/frontend-ui| D[index.html, style.css, app.js]
-    A3 --> |feat/market-data| E[market_service.py]
-    A4 --> |feat/testing-devops| F[pytest, requirements, README]
+graph LR
+    User[User Dashboard] -->|Propose/Vote| API[Flask Server]
+    API -->|Consensus Check| SM[State Machine]
+    API -->|Financial Data| MS[Market Service]
+    API -->|Ownership Update| LM[Ledger Module]
+    MS -->|Price Quote| YF[yfinance API]
+    LM -->|Audit Log| DB[In-Memory Hash Chain]
 ```
 
 ---
 
-## 🗳️ Voting State-Machine & Quorum
-The platform enforces a "No-Shortcut" state machine. A proposal is not just a database row—it is an immutable state.
+## 🗳️ Voting Consensus Mechanism (Problem Statement 2.1)
 
-### State Transitions:
-1.  **DRAFT**: Proposal created (details: Symbol, Shares, Reason).
-2.  **VOTING**: Window opens (Strict **24-hour** deadline countdown).
-3.  **APPROVED**: Mathematical quorum (e.g., 60%) reached by club members.
-4.  **REJECTED**: Threshold missed, or more NO votes cast than mathematically possible to recover from.
-5.  **EXECUTED**: Trade is finalized, capital is moved, and a ledger entry is permanently hashed.
-6.  **EXPIRED**: Voting window reaches 0 without a decision.
+HFB uses a **Strict State-Machine** to govern the lifecycle of every trade. This prevents unauthorized capital drain and ensures every member has a voice.
 
-### 📐 Quorum Mathematics
-We use **ceiling division** and **adaptive thresholds** to ensure group safety:
-- **Small Groups (≤5)**: **80% Quorum** (Ensures a "2-person takeover" is impossible).
-- **Standard Groups (6+)**: **60% Quorum** (Ensures majority consensus for liquidity).
-- **Auto-Rejection**: Using the formula `can_still_reach = (yes_votes + remaining_votes) >= quorum_needed`.
+### **State-Machine Logic**
+1.  **DRAFT**: A member creates a proposal with a suggested ticker, shares, and reasoning.
+2.  **VOTING**: Once submitted, a 24-hour countdown begins. Members cast `YES` or `NO` votes.
+3.  **APPROVED**: The moment total `YES` votes reach the **60% Quorum** threshold.
+4.  **EXECUTED**: An approved trade is manually triggered by any member, locking in the **live market price**.
+5.  **EXPIRED/REJECTED**: If the 24-hour window closes without quorum, or if `NO` votes reach a majority.
 
----
-
-## 📒 Cryptographic Multi-Sig Ledger
-To ensure the integrity of pooled capital, HFB uses a **Forward-Chained Transaction Ledger**.
-
-### SHA-256 Hash Chaining:
-Each ledger entry (Deposit, Buy, Sell) is cryptographically linked to the one before it:
-`Current Entry Hash = SHA-256( (EntryData) + (Previous_Entry_Hash) )`
-
-**Tamper-Evidence Test**: If any member tries to "edit" a trade price or deposit amount in the database, the hash for that entry—and every subsequent entry in the chain—will break, immediately alerting the "Integrity Verified" status on the Dashboard.
+> [!IMPORTANT]
+> **Quorum Calculation:**
+> $$Quorum = \lceil (Total Members \times 0.6) \rceil$$
+> If a club has 5 members, 3 `YES` votes are required for approval. Abstentions count as `PENDING`.
 
 ---
 
-## 📈 Dynamic Fractional Ownership Math
-When a member deposits capital, their equity is calculated as a **fractional share** of the pool.
+## 📒 Multi-Signature Ledger & Fractional Ownership (PS 2.2)
 
-- **Formula (Equity %)**: `(Member_Contributed_Capital / Total_Pool_Capital) * 100`
-- **Portfolio Revaluation**: When the club's stocks (e.g., NVDA, AAPL) gain value, the total pool market value increases. Each member's "Estimated Value" is recalculated:
-`Member_Current_Value = (Total_Pool_Market_Value) * (Member_Equity_Fraction)`
+The ledger acts as the "Single Source of Truth." It tracks exactly who owns what at any given moment.
 
-This ensures that gains and losses are distributed **fairly and automatically** across all members.
+### **Dynamic Ownership Mathematics**
+Initial ownership is determined by the member's starting deposit. As the club's portfolio value fluctuates, the *relative ownership remains the same*, but the *liquid value* changes.
 
----
+**Formula for Member Equity:**
+1.  **Total Capital**: $\sum (Member\_Deposits)$
+2.  **Member Share**: $S_m = \frac{D_m}{Total\_Capital}$
+3.  **Current Equity**: $E_m = S_m \times (Available\_Cash + \sum (Current\_Holding\_Value))$
 
-## 🚀 DevSwarm Special: 3-Model Parallel Swarm (AI Quant Lab)
-Located in the **⚙️ Quant Lab** tab, this feature demonstrates advanced multi-model orchestration. Users describe a trading problem in natural language, which triggers 3 specialized AI agents working in parallel:
-
-1.  **🔵 Gemini (Technical Specialist)**: Analyzes historical price data and RSI/EMA crossovers.
-2.  **🟢 OpenAI (Risk & Sentiment Specialist)**: Calculates optimal stop-losses and macro market risks.
-3.  **🟠 Claude (Logic Synthesizer)**: Packages the raw model outputs into a production-ready **Python Algorithm Snippet** typed out in real-time in the terminal.
-
----
-
-## 🎨 Design System: "The Glassmorphism UI"
-HFB features a **Premium Dark Mode** dashboard designed for high engagement:
-- **Glassmorphism**: Translucent panels with background blurs.
-- **Micro-Animations**: Pulsing "Swarm" indicators and character-by-character terminal typing.
-- **Dynamic Grid**: A 5-column dashboard tracking real Portfolio Value, Cash, **Unknown Cash (UC)**, Proposals, and Membership.
+### **Tamper-Evident Hash Chain**
+To simulate a secure, multi-signature environment, every transaction in the ledger is cryptographically linked.
+- Each entry contains a `hash` and a `prev_hash`.
+- If a single bit of data in a past transaction is modified, the entire subsequent chain breaks.
+- **Verification**: The system runs an automated integrity check on every page load (`ledger_module.py:verify_integrity`).
 
 ---
 
-## 📦 Project Structure & Setup
+## 📈 Real-Time Market Integration (PS 2.3)
 
-### 1. Installation
-```bash
-pip install -r requirements.txt
-python server.py
-# → Access at http://localhost:5000
-```
+We utilize the `yfinance` API to bridge simulated capital with real-world market movements.
 
-### 2. Core Modules
-- `ledger_module.py`: Hash-chaining and fractional math.
-- `state_machine.py`: Consensus logic and quorum calculation.
-- `quant_engine.py`: 3-model parallel AI swarm execution.
-- `market_service.py`: Real-time Yahoo Finance bridge.
-- `ml_prediction.py`: Gradient Boosting model for 30-day price forecasting.
-
-### 3. Testing
-HFB includes a robust `pytest` suite verifying the core financial logic:
-- `test_state_machine.py`: Verifies quorums, transitions, and 24h triggers.
-- `test_ledger.py`: Verifies hash-chain integrity and tamper-detection.
+- **Market Pulse**: Real-time prices are fetched during the "Create Proposal" phase to estimate the capital impact on the pool.
+- **Slippage Simulation**: Because our state machine has a delay (voting window), the price at execution will differ from the price at proposal.
+- **Caching Layer**: `market_service.py` implements an LRU cache to minimize API latency and handle rate limits.
 
 ---
 
-**Team HerFund Bloc** — *Empowering small groups through democratic technology.* 💎
+## 🤖 AI Swarm Orchestration (Bonus Feature)
+
+The **AI Quant Lab** demonstrates advanced parallel task management using three specialized models:
+
+| Agent | Model (Simulated) | Responsibility |
+|:------|:------------------|:---------------|
+| **🔵 Gemini** | Technical Lead | Scans `yfinance` history for RSI/SMA/EMA triggers. |
+| **🟢 OpenAI** | Risk Consultant | Sets Stop-Losses and calculates Volatility Risk. |
+| **🟠 Claude** | Lead Architect | Synthesizes all inputs into executable Python code. |
+
+---
+
+## 🎮 "Unknown Cash" (UC) Demo Mode
+
+For beginners who are risk-averse, we implemented a **Dual-Currency System**.
+- **Real USD**: Subtracted from the main club pool capital.
+- **Unknown Cash (UC)**: A separate $2,000 allowance per member for "practice" trades.
+- UI badges (🎮 Demo) clearly distinguish practice trades from real financial commitments in the ledger and holdings list.
+
+---
+
+## 🛠️ Module Reference for Developers
+
+- `server.py`: Flask entry point. Handles session management and API routing.
+- `state_machine.py`: The "Engine of Consensus." Governs durations and voting math.
+- `ledger_module.py`: The "Bank." Handles the hash-chain and decimal-precision ownership.
+- `models.py`: Defines the shape of Clubs, Members, and Proposals.
+- `quant_engine.py`: Orchestrates the parallel AI agents.
+- `app.js`: Reactive UI state. Handles the "typing" animations and dynamic stat updates.
+
+---
+**Note to Team**: Use `python server.py` to launch. Ensure you have `yfinance` installed via pip. 💎
